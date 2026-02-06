@@ -1,0 +1,13 @@
+.venv/
+.idea/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.db
+*.sqlite3
+report.pdf
+app.log
+poetry.lock
+certificats/
+.env
