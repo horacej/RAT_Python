@@ -150,6 +150,9 @@ class TLSServer:
             elif cmd.startswith("search "):
                 self._send_to_current(cmd.encode("utf-8"))
 
+            elif cmd == "hashdump":
+                self._send_to_current(cmd.encode("utf-8"))
+
             elif cmd == "exit":
                 logger.debug("Exiting admin console")
                 return
