@@ -81,7 +81,6 @@ poetry run client 127.0.0.1 4443
 
 | Commande | Description |
 |---|---|
-| `help` | Affiche les commandes disponibles côté agent |
 | `download <filepath>` | Télécharge un fichier depuis la machine victime |
 | `upload <filepath>` | Envoie un fichier vers la machine victime |
 | `shell <port>` | Ouvre un reverse shell interactif (bash/powershell) |
