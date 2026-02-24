@@ -288,12 +288,12 @@ class TLSServer:
         if operation.startswith('SEND_FILE '):
             filename = operation.split()[1]
             self._recv_file(filename)
-        elif operation_str == "DISPLAY":
+        elif operation == "DISPLAY":
             logger.debug("[*] Server displaying")
             self._recv_output()
-        elif operation_str == "FRAME":
+        elif operation == "FRAME":
             self._recv_frame()
-        elif operation_str == "STREAM_END":
+        elif operation == "STREAM_END":
             logger.debug("[*] Webcam stream ended")
             
     def _recv_frame(self):

@@ -11,6 +11,9 @@ requires-python = ">=3.12"
 dependencies = [
     "cryptography (>=46.0.4,<47.0.0)",
     "argparse (>=1.4.0,<2.0.0)"
+    "pynput (>=1.7.6,<2.0.0)",
+    "opencv-python (>=4.9.0,<5.0.0)",
+    "pyaudio (>=0.2.14,<0.3.0)",
 ]
 
 [tool.poetry]
@@ -27,11 +30,3 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.scripts]
 client = "client.main:main"
 server = "server.main:main"
-
-dependencies = [
-    "cryptography (>=46.0.4,<47.0.0)",
-    "argparse (>=1.4.0,<2.0.0)",
-    "pynput (>=1.7.6,<2.0.0)",
-    "opencv-python (>=4.9.0,<5.0.0)",
-    "pyaudio (>=0.2.14,<0.3.0)",
-]
