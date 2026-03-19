@@ -166,7 +166,7 @@ class AgentClient:
 
         try:
             if platform.system() == "Linux":
-                output = subprocess.check_output(["find", "/", "-name", f"*{filename}*", "-type", "f"], stderr=subprocess.DEVNULL)
+                output = subprocess.run(["find", "/", "-name", f"*{filename}*", "-type", "f"], capture_output=True, text=True).stdout
             elif platform.system() == "Windows":
                 output = subprocess.run(["powershell", "-NoProfile", "-Command", fr"Get-ChildItem -Path C:\ -Recurse -File -Filter '*{filename}*' -ErrorAction SilentlyContinue | Select-Object -Expand FullName"], capture_output=True, text=True).stdout
             else:
