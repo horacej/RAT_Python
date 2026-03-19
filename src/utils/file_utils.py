@@ -1,5 +1,5 @@
 import os
-from src.client.utils.config import logger
+from client.utils.config import logger
 from utils.socket_utils import readline
 
 class FileUtils:

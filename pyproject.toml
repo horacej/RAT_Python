@@ -7,7 +7,7 @@ authors = [
     {name = "Omar MALIH",email = "o.malih@myskolae.fr"}
 ]
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.12,<3.15"
 dependencies = [
     "cryptography (>=46.0.4,<47.0.0)",
     "argparse (>=1.4.0,<2.0.0)",
@@ -30,3 +30,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.scripts]
 client = "client.main:main"
 server = "server.main:main"
+[dependency-groups]
+dev = [
+    "pyinstaller (>=6.19.0,<7.0.0)"
+]

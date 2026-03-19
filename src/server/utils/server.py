@@ -1,7 +1,7 @@
 import socket
 import ssl
 import threading
-from src.server.utils.config import logger
+from server.utils.config import logger
 from utils.file_utils import FileUtils
 from utils.socket_utils import readline
 

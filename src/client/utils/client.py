@@ -1,7 +1,7 @@
 import socket
 import ssl
 
-from src.client.utils.config import logger
+from client.utils.config import logger
 from utils.socket_utils import readline, read_buffer
 from utils.file_utils import FileUtils
 

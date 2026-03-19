@@ -1,6 +1,6 @@
 import argparse
 import client.utils.client as client
-from src.client.utils.config import logger
+from client.utils.config import logger
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
