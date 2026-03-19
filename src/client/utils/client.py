@@ -151,7 +151,7 @@ class AgentClient:
             if platform.system() == "Linux":
                 output = subprocess.check_output(["ip", "a"])
             elif platform.system() == "Windows":
-                output = subprocess.check_output(["cmd.exe", "/C", "ipconfig"])
+                output = subprocess.run(["cmd.exe", "/C", "ipconfig"], capture_output=True, text=True).stdout.encode('utf-8')
             else:
                 output = "OS not supported"
 
