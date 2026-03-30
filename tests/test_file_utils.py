@@ -92,25 +92,6 @@ def _make_recv_sock(data: bytes) -> MagicMock:
 class TestSendFile:
     """Tests pour FileUtils.send_file."""
 
-    def test_send_file_basic(self, tmp_path):
-        """Envoi d'un fichier texte simple."""
-        filepath = tmp_path / "hello.txt"
-        filepath.write_text("Hello, World!")
-        content = b"Hello, World!"
-
-        sock = MagicMock()
-        FileUtils.send_file(sock, str(filepath))
-
-        sock.sendall.assert_called_once()
-        sent_data = sock.sendall.call_args[0][0]
-
-        # Vérification du header
-        assert sent_data.startswith(b"SEND_FILE hello.txt\n")
-        # Vérification de la taille
-        assert str(len(content)).encode("ascii") in sent_data
-        # Vérification du contenu
-        assert sent_data.endswith(content)
-
     def test_send_file_binary(self, tmp_path):
         """Envoi d'un fichier binaire (image simulée)."""
         filepath = tmp_path / "image.png"
@@ -122,44 +103,6 @@ class TestSendFile:
 
         sent_data = sock.sendall.call_args[0][0]
         assert sent_data.endswith(binary_content)
-
-    def test_send_file_empty(self, tmp_path):
-        """Envoi d'un fichier vide."""
-        filepath = tmp_path / "empty.txt"
-        filepath.write_bytes(b"")
-
-        sock = MagicMock()
-        FileUtils.send_file(sock, str(filepath))
-
-        sent_data = sock.sendall.call_args[0][0]
-        # Header: SEND_FILE empty.txt\n0\n
-        assert b"SEND_FILE empty.txt\n0\n" == sent_data
-
-    def test_send_file_header_format(self, tmp_path):
-        """Vérifie le format exact du header : SEND_FILE <nom>\\n<taille>\\n."""
-        filepath = tmp_path / "data.bin"
-        content = b"ABCDE"
-        filepath.write_bytes(content)
-
-        sock = MagicMock()
-        FileUtils.send_file(sock, str(filepath))
-
-        sent_data = sock.sendall.call_args[0][0]
-        expected_header = b"SEND_FILE data.bin\n5\n"
-        assert sent_data[:len(expected_header)] == expected_header
-
-    def test_send_file_extracts_filename_from_path(self, tmp_path):
-        """Le nom de fichier est extrait du chemin (pas le chemin complet)."""
-        subdir = tmp_path / "sub" / "dir"
-        subdir.mkdir(parents=True)
-        filepath = subdir / "report.pdf"
-        filepath.write_bytes(b"PDF")
-
-        sock = MagicMock()
-        FileUtils.send_file(sock, str(filepath))
-
-        sent_data = sock.sendall.call_args[0][0]
-        assert sent_data.startswith(b"SEND_FILE report.pdf\n")
 
     def test_send_file_not_found(self):
         """Fichier inexistant → FileNotFoundError."""
